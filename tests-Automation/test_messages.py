@@ -19,13 +19,6 @@ def test_messages_tab_and_save(browser):
     good_input.clear()
     good_input.send_keys("Air quality is good!")
 
-    # Fill another field (example)
-    moderate_input = browser.find_element(By.XPATH, "//input[@placeholder='Moderate (51-100)']")
-    moderate_input.clear()
-    moderate_input.send_keys("Air quality is moderate.")
-
-    # Click Save Messages button
-
     save_btn = browser.find_element(By.XPATH, "//button[normalize-space()='Save Messages']")
     save_btn.click()
     time.sleep(1)

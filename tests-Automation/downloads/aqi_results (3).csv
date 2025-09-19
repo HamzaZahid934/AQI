@@ -1,0 +1,3 @@
+name,city,phone,aqi,message
+Ali,Lahore,03001234567,," City not found or API error."
+Sara,Karachi,03007654321,," City not found or API error."
