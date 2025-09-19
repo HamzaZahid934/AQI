@@ -31,11 +31,11 @@ jobs:
       # Step 4: Run tests with coverage
       - name: Run tests with coverage
         run: |
-          pytest --cov=./ --cov-report=xml --cov-report=html
+          pytest --cov=./ --cov-report=xml --cov-report=html:reports/coverage
 
       # Step 5: Upload coverage report (HTML) as artifact
       - name: Upload coverage report
         uses: actions/upload-artifact@v3
         with:
           name: coverage-report
-          path: htmlcov
+          path: reports/coverage
