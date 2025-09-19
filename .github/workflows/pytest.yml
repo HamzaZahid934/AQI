@@ -26,6 +26,11 @@ jobs:
       - name: Copy environment file
         run: cp .env.example .env
 
+      - name: Configure environment for testing
+        run: |
+          echo "DB_CONNECTION=sqlite" >> .env
+          echo "DB_DATABASE=/home/runner/work/AQI/AQI/database/database.sqlite" >> .env
+
       - name: Generate application key
         run: php artisan key:generate
 
@@ -38,13 +43,17 @@ jobs:
         run: php artisan migrate --force
 
       - name: Start Laravel server
-        run: php artisan serve --host=127.0.0.1 --port=8000 &
+        run: |
+          php artisan serve --host=0.0.0.0 --port=8000 &
+          echo $! > server.pid
         env:
           APP_ENV: testing
 
       - name: Wait for server to be ready
         run: |
-          timeout 30 bash -c 'until curl -f http://127.0.0.1:8000 > /dev/null 2>&1; do sleep 1; done'
+          echo "Waiting for Laravel server to be ready..."
+          timeout 60 bash -c 'until curl -f http://localhost:8000 > /dev/null 2>&1; do echo "Server not ready, waiting..."; sleep 2; done'
+          echo "Server is ready!"
 
       - name: Set up Python
         uses: actions/setup-python@v4
