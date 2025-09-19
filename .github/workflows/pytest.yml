@@ -14,6 +14,38 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: pdo, sqlite, pdo_sqlite, mbstring, xml, ctype, iconv, intl, pdo_mysql
+
+      - name: Install Composer dependencies
+        run: composer install --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Copy environment file
+        run: cp .env.example .env
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      - name: Create SQLite database
+        run: |
+          mkdir -p database
+          touch database/database.sqlite
+
+      - name: Run database migrations
+        run: php artisan migrate --force
+
+      - name: Start Laravel server
+        run: php artisan serve --host=127.0.0.1 --port=8000 &
+        env:
+          APP_ENV: testing
+
+      - name: Wait for server to be ready
+        run: |
+          timeout 30 bash -c 'until curl -f http://127.0.0.1:8000 > /dev/null 2>&1; do sleep 1; done'
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
