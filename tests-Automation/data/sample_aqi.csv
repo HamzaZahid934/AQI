@@ -1,3 +1,3 @@
-Name,City,Phone,AQI,Message
-Ali,Lahore,03001234567,150,Unhealthy
-Sara,Karachi,03007654321,75,Moderate
+Name,City,Phone
+Ali,Lahore,03001234567
+Sara,Karachi,03007654321
