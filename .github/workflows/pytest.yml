@@ -30,6 +30,10 @@ jobs:
         run: |
           echo "DB_CONNECTION=sqlite" >> .env
           echo "DB_DATABASE=/home/runner/work/AQI/AQI/database/database.sqlite" >> .env
+          echo "CACHE_DRIVER=file" >> .env
+          echo "SESSION_DRIVER=file" >> .env
+          echo "QUEUE_CONNECTION=sync" >> .env
+          echo "IQAIR_API_KEY=dummy_key" >> .env
 
       - name: Generate application key
         run: php artisan key:generate
@@ -41,6 +45,14 @@ jobs:
 
       - name: Run database migrations
         run: php artisan migrate --force
+
+      - name: Create storage directories
+        run: |
+          mkdir -p storage/framework/cache/data
+          mkdir -p storage/framework/sessions
+          mkdir -p storage/framework/views
+          mkdir -p storage/logs
+          chmod -R 775 storage
 
       - name: Start Laravel server
         run: |
