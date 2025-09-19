@@ -44,10 +44,12 @@ jobs:
       - name: Run PHP tests with coverage
         run: |
           mkdir -p reports
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
           ./vendor/bin/phpunit --coverage-html=reports/coverage_${TIMESTAMP} --coverage-clover=reports/coverage_${TIMESTAMP}/coverage.xml
+          echo "REPORT_DIR=coverage_${TIMESTAMP}" >> $GITHUB_ENV
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v3
         with:
           name: php-coverage-report-${{ env.TIMESTAMP }}
-          path: reports/coverage_${{ env.TIMESTAMP }}
+          path: reports/${{ env.REPORT_DIR }}
