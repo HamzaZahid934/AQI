@@ -4,29 +4,77 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pakistan AQI Dashboard</title>
+  <script src="//unpkg.com/alpinejs" defer></script>
+  <style>
+  [x-cloak] { display: none !important; }
+</style>
   @vite(['resources/css/app.css','resources/js/app.js'])
 </head>
-<body class="min-h-screen bg-gradient-to-b from-white via-slate-50 to-indigo-50 text-slate-800 antialiased">
-  <header class="sticky top-0 z-30 border-b border-slate-200/60 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+<body class="min-h-screen bg-gradient-to-br from-indigo-50 via-sky-50 to-white text-slate-800 antialiased" x-data="{ loading: false }">
+   <!-- Overlay Loader -->
+    <!-- Overlay Loader -->
+    <div 
+        x-show="loading" 
+        x-cloak
+        class="fixed inset-0 flex items-center justify-center bg-slate-900/60 z-50"
+        x-transition.opacity
+    >
+        <div class="flex flex-col items-center gap-4">
+            <svg class="animate-spin h-12 w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+            </svg>
+            <p class="text-white font-medium text-lg">Processing...</p>
+        </div>
+    </div>
+
+
+  <header class="sticky top-0 z-30 bg-gradient-to-r from-indigo-600 to-sky-600 text-white shadow">
     <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-600 to-sky-500 shadow ring-1 ring-indigo-400/40"></div>
-        <h1 class="text-xl md:text-2xl font-bold tracking-tight">Pakistan AQI Dashboard</h1>
-      </div>
-      <div class="flex items-center gap-2">
-        <a href="{{ route('download') }}" class="hidden sm:inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-white shadow hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12V4m0 0L8 8m4-4l4 4"/></svg>
-          Download CSV
-        </a>
+      <a href="{{ route('home') }}" class="flex items-center space-x-3">
+        <div class="h-9 w-9 rounded-lg bg-red/20 shadow ring-1 ring-white/30"></div>
+        <span class="text-xl md:text-2xl font-bold tracking-tight">Pakistan AQI</span>
+      </a>
+      <div class="flex items-center gap-3"> 
+        <div class="relative" id="profile-menu">
+          <button id="profile-button" class="inline-flex items-center rounded-xl bg-white/15 px-5 py-3 text-sm font-medium text-white shadow hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white/40">
+            {{ auth()->user()->name }}
+          </button>
+          <div id="profile-dropdown" class="absolute right-0 mt-2 w-44 origin-top-right rounded-lg border border-slate-200 bg-white py-1 shadow-lg hidden">
+            <a href="{{ route('profile.show') }}" class="block px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Edit Profile</a>
+            <form method="POST" action="{{ route('logout') }}">
+              @csrf
+              <button type="submit" class="w-full text-left px-3 py-2 rounded-xl text-sm text-slate-700 hover:bg-slate-50">Sign out</button>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   </header>
 
   <main class="max-w-7xl mx-auto px-6 py-10">
+    <div class="rounded-2xl bg-blue-300 border border-slate-200 px-6 py-8 mb-8 text-center">
+      <h1 class="text-2xl font-bold text-white">Pakistan AQI Dashboard</h1>
+      <p class="mt-1 text-sm text-white">Upload CSV, view AQI results, and manage messages</p>
+    </div>
     @if (session('success'))
-      <div class="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-        {{ session('success') }}
+    <div id="success-alert" class="relative mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+      <div class="pr-8">
+          {{ session('success') }}
       </div>
+
+      <!-- Close Button -->
+      <button 
+          type="button"
+          onclick="document.getElementById('success-alert').style.display='none'"
+          class="absolute right-2 top-2 rounded-full p-1 text-green-700 hover:bg-green-100 focus:outline-none"
+      >
+          <!-- Heroicon X Mark -->
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-5 w-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+      </button>
+    </div>
     @endif
     @if (session('error'))
       <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -64,8 +112,11 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2">
           <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 class="text-lg font-semibold text-slate-900">Upload CSV & Check AQI</h2>
-            <p class="mt-1 text-sm text-slate-500">Upload contacts with columns: Name, City, Phone</p>
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-lg font-semibold text-slate-900">Upload CSV & Check AQI</h2>
+              </div>
+            </div>
 
             <form action="{{ route('upload') }}" method="POST" enctype="multipart/form-data" class="mt-5 space-y-4" id="upload-form">
               @csrf
@@ -78,48 +129,10 @@
                 </label>
               </div>
               <div id="file-error" class="mt-2 text-sm text-red-600"></div>
-              <div class="flex items-center justify-between">
+              <div class="flex items-center justify-start">
                 <div id="file-name" class="text-sm text-slate-500"></div>
-                <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-white shadow hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                  Process
-                </button>
               </div>
             </form>
-
-            @php $results = $results ?? session('aqi_results', []); @endphp
-            @if(!empty($results))
-              <div class="mt-8 overflow-hidden rounded-xl border border-slate-200">
-                <table class="min-w-full divide-y divide-slate-200">
-                  <thead class="bg-slate-50">
-                    <tr>
-                      <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">Name</th>
-                      <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">City</th>
-                      <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">Phone</th>
-                      <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">AQI</th>
-                      <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">Message</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-100 bg-white">
-                    @foreach($results as $row)
-                      <tr class="hover:bg-indigo-50/40">
-                        <td class="px-4 py-2 text-sm">{{ $row['name'] }}</td>
-                        <td class="px-4 py-2 text-sm">{{ $row['city'] }}</td>
-                        <td class="px-4 py-2 text-sm">{{ $row['phone'] }}</td>
-                        <td class="px-4 py-2 text-sm font-semibold">
-                          <span class="rounded-full px-2 py-1 text-xs
-                            {{ ($row['aqi'] ?? 0) <= 50 ? 'bg-green-100 text-green-700' :
-                               (($row['aqi'] ?? 0) <= 100 ? 'bg-yellow-100 text-yellow-700' :
-                               'bg-red-100 text-red-700') }}">
-                            {{ $row['aqi'] ?? 'N/A' }}
-                          </span>
-                        </td>
-                        <td class="px-4 py-2 text-sm">{{ $row['message'] }}</td>
-                      </tr>
-                    @endforeach
-                  </tbody>
-                </table>
-              </div>
-            @endif
           </div>
         </div>
         <div>
@@ -132,8 +145,113 @@
             </ul>
           </div>
         </div>
+       
+        @php $results = $results ?? session('aqi_results', []); @endphp
+        @if(!empty($results))
+        <div class="lg:col-span-2">
+          <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div class="flex items-center justify-between">
+              <h3 class="text-base font-semibold text-slate-800"></h3>
+              <a href="{{ route('download') }}" id="download-btn"
+                class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-white shadow hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                Download CSV
+              </a>
+            </div>
+
+            <div class="mt-3 overflow-hidden rounded-xl border border-slate-200">
+              <table id="results-table" class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-slate-50">
+                  <tr>
+                    <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">Name</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">City</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">Phone</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">AQI</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">Message</th>
+                    <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 bg-white">
+                  @foreach($results as $row)
+                    <tr class="hover:bg-indigo-50/40">
+                      <td class="px-4 py-2 text-sm">{{ $row['name'] }}</td>
+                      <td class="px-4 py-2 text-sm">{{ $row['city'] }}</td>
+                      <td class="px-4 py-2 text-sm">{{ $row['phone'] }}</td>
+                      <td class="px-4 py-2 text-sm font-semibold">
+                        <span class="rounded-full px-2 py-1 text-xs
+                          {{ ($row['aqi'] ?? 0) <= 50 ? 'bg-green-100 text-green-700' :
+                              (($row['aqi'] ?? 0) <= 100 ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-red-100 text-red-700') }}">
+                          {{ $row['aqi'] ?? 'N/A' }}
+                        </span>
+                      </td>
+                      <td class="px-4 py-2 text-sm">{{ $row['message'] }}</td>
+                      <td class="px-4 py-2 text-sm">
+                        <div class="inline-flex items-center gap-2">
+                          <button class="edit-btn inline-flex items-center gap-2 rounded-md bg-slate-100 px-3 py-1 text-sm text-slate-700 hover:bg-slate-200">Edit</button>
+                          <button class="delete-btn inline-flex items-center gap-2 rounded-md bg-red-100 px-3 py-1 text-sm text-red-700 hover:bg-red-200">Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  @endforeach
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        {{-- Deleted Records Table --}}
+        <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h3 class="text-base font-semibold text-slate-800 mt-4">Deleted Records</h3>
+          <div class="mt-3 overflow-hidden rounded-xl border border-slate-200">
+            <table id="deleted-table" class="min-w-full divide-y divide-slate-200">
+              <thead class="bg-slate-50">
+                <tr>
+                  <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">Name</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">City</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">Phone</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">AQI</th>
+                  <th class="px-4 py-2 text-left text-xs font-semibold tracking-wide text-slate-600">Message</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 bg-white">
+                
+              </tbody>
+            </table>
+          </div>
+        </div>
+        @endif
       </div>
-    </section>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm mt-4" >
+        <h2 class="text-lg font-semibold text-slate-900">Add Custom Record</h2>
+        <p class="mt-1 text-sm text-slate-500">Override default texts per AQI range</p>
+        <div class="row">
+
+        <form method="POST" action="{{ route('upload') }}" >
+          @csrf
+          <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div class="col-md-6">
+              <label class="block text-sm font-medium text-slate-700 ">Name</label>
+              <input type="text" name="name" value="{{ old('name') }}" required 
+                class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500" />
+            </div>
+            <div class="col-md-6">
+              <label class="block text-sm font-medium text-slate-700">City</label>
+              <input type="text" name="city" value="{{ old('city') }}" required class="input w-full mt-1" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700">Phone</label>
+              <input type="text" name="phone" required class="input w-full mt-1" />
+            </div>
+            </div>
+            <div>
+              <button type="submit" class="btn-primary w-full justify-center mt-4">Create Record</button>
+            </div>
+
+        </form>
+      </div>
+    </div>
+  </div>
+  </section>
 
     <section id="messages" class="tab-content hidden">
       <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

@@ -87,7 +87,14 @@ function initDragDrop() {
                 submitBtn.disabled = false;
                 submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             }
-            if (form) form.dataset.csvValid = 'true';
+            if (form) {
+                form.dataset.csvValid = 'true';
+                // Auto-submit once when valid
+                if (form.dataset.autoSubmitted !== 'true') {
+                    form.dataset.autoSubmitted = 'true';
+                    form.submit();
+                }
+            }
         } else {
             const details = foundHeaders && foundHeaders.length ? ` Found headers: ${foundHeaders.join(', ')}` : '';
             fileError.textContent = `${message}${details}`;
@@ -96,7 +103,10 @@ function initDragDrop() {
                 submitBtn.disabled = true;
                 submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
             }
-            if (form) form.dataset.csvValid = 'false';
+            if (form) {
+                form.dataset.csvValid = 'false';
+                form.dataset.autoSubmitted = 'false';
+            }
         }
     }
 
@@ -166,4 +176,27 @@ function initDragDrop() {
 document.addEventListener('DOMContentLoaded', () => {
 	initTabs();
 	initDragDrop();
+
+    // Profile dropdown
+    const btn = document.getElementById('profile-button');
+    const menu = document.getElementById('profile-dropdown');
+    if (btn && menu) {
+        function closeMenu(e) {
+            if (!menu || !btn) return;
+            if (e && (btn.contains(e.target) || menu.contains(e.target))) return;
+            menu.classList.add('hidden');
+            document.removeEventListener('click', closeMenu);
+        }
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menu.classList.toggle('hidden');
+            if (!menu.classList.contains('hidden')) {
+                setTimeout(() => document.addEventListener('click', closeMenu), 0);
+            } else {
+                document.removeEventListener('click', closeMenu);
+            }
+        });
+    }
 });
+
+

@@ -18,88 +18,117 @@ class AQIController extends Controller
 
     public function upload(Request $request)
     {
-        $request->validate([
-            'csv' => 'required|mimes:csv,txt',
-        ]);
-
-        try {
-            $csv = Reader::createFromPath($request->file('csv')->getRealPath(), 'r');
-            $csv->setHeaderOffset(0);
-
-            // Validate headers case-insensitively and ignore extras
-            $headers = array_map('strtolower', (array) $csv->getHeader());
-            $required = ['name', 'city', 'phone'];
-            $missing = array_values(array_diff($required, $headers));
-            if (!empty($missing)) {
-                $details = 'Missing required header(s): ' . implode(', ', $missing) . '. Expected headers: Name, City, Phone';
-                return back()->with('error', 'Invalid CSV headers.')->with('error_details', $details);
-            }
-
-            $records = $csv->getRecords();
-            $output = [];
-            $rowNumber = 1; // header is row 1
-
-            foreach ($records as $record) {
-                $rowNumber++;
-
-                // Normalize keys to lowercase to support any casing in headers
-                $normalized = array_change_key_case($record, CASE_LOWER);
-                $name = trim((string) ($normalized['name'] ?? ''));
-                $city = trim((string) ($normalized['city'] ?? ''));
-                $phone = trim((string) ($normalized['phone'] ?? ''));
-
-                // Validate required fields per row
-                if ($name === '' || $city === '' || $phone === '') {
-                    $output[] = [
-                        'name'    => $name,
-                        'city'    => $city,
-                        'phone'   => $phone,
-                        'aqi'     => null,
-                        'message' => " Missing value(s). Each row must include Name, City, and Phone.",
-                    ];
-                    continue;
+        // 1. If request has CSV, process CSV
+        if ($request->hasFile('csv')) {
+            $request->validate([
+                'csv' => 'required|mimes:csv,txt',
+            ]);
+    
+            try {
+                $csv = Reader::createFromPath($request->file('csv')->getRealPath(), 'r');
+                $csv->setHeaderOffset(0);
+    
+                // Validate headers
+                $headers = array_map('strtolower', (array) $csv->getHeader());
+                $required = ['name', 'city', 'phone'];
+                $missing = array_values(array_diff($required, $headers));
+                if (!empty($missing)) {
+                    $details = 'Missing required header(s): ' . implode(', ', $missing) . '. Expected headers: Name, City, Phone';
+                    return back()->with('error', 'Invalid CSV headers.')->with('error_details', $details);
                 }
-
-                try {
-                    $response = Http::get("https://api.airvisual.com/v2/city", [
-                        'city'    => $city,
-                        'state'   => $this->getStateByCity($city),
-                        'country' => 'Pakistan',
-                        'key'     => env('IQAIR_API_KEY'),
-                    ]);
-
-                    if ($response->successful() && $response->json('status') === 'success') {
-                        $aqi = $response->json('data.current.pollution.aqius');
-                        $message = $this->getMessage($aqi, $name, $city);
-                    } else {
-                        $aqi = null;
-                        $message = " City not found or API error.";
-                    }
-                } catch (\Throwable $e) {
-                    $aqi = null;
-                    $message = " Could not fetch AQI (" . $e->getMessage() . ").";
+    
+                $records = $csv->getRecords();
+                $output = [];
+                foreach ($records as $record) {
+                    $normalized = array_change_key_case($record, CASE_LOWER);
+                    $output[] = $this->processRecord(
+                        $normalized['name'] ?? '',
+                        $normalized['city'] ?? '',
+                        $normalized['phone'] ?? ''
+                    );
                 }
-
-                $output[] = [
-                    'name'    => $name,
-                    'city'    => $city,
-                    'phone'   => $phone,
-                    'aqi'     => $aqi,
-                    'message' => $message,
-                ];
+    
+                if (empty($output)) {
+                    return back()->with('error', 'The CSV appears to be empty.')
+                                 ->with('error_details', 'Add at least one row under the headers: Name, City, Phone');
+                }
+    
+                session(['aqi_results' => $output]);
+                return back()->with('results', $output)->with('success', 'CSV processed successfully.');
+            } catch (\Throwable $e) {
+                return back()->with('error', 'Could not process the CSV file.')
+                             ->with('error_details', $e->getMessage());
             }
-
-            if (empty($output)) {
-                return back()->with('error', 'The CSV appears to be empty.')->with('error_details', 'Add at least one row under the headers: Name, City, Phone');
-            }
-
-            session(['aqi_results' => $output]);
-            return back()->with('results', $output)->with('success', 'CSV processed successfully.');
-        } catch (\Throwable $e) {
-            return back()->with('error', 'Could not process the CSV file.')->with('error_details', $e->getMessage());
         }
-
+    
+        // 2. If manual input is present (no CSV)
+        if ($request->filled(['name', 'city', 'phone'])) {
+            $name = $request->input('name');
+            $city = $request->input('city');
+            $phone = $request->input('phone');
+    
+            $record = $this->processRecord($name, $city, $phone);
+    
+            // Merge with existing session results
+            $results = session('aqi_results', []);
+            $results[] = $record;
+            session(['aqi_results' => $results]);
+    
+            return back()->with('results', $results)->with('success', 'Record added successfully.');
+        }
+    
+        // 3. If neither provided
+        return back()->with('error', 'Please upload a CSV file or provide Name, City, and Phone.');
     }
+    
+    /**
+     * Handle API call + validation for a single record
+     */
+    private function processRecord($name, $city, $phone)
+    {
+        $name = trim((string) $name);
+        $city = trim((string) $city);
+        $phone = trim((string) $phone);
+    
+        if ($name === '' || $city === '' || $phone === '') {
+            return [
+                'name'    => $name,
+                'city'    => $city,
+                'phone'   => $phone,
+                'aqi'     => null,
+                'message' => "Missing value(s). Each row must include Name, City, and Phone.",
+            ];
+        }
+    
+        try {
+            $response = Http::get("https://api.airvisual.com/v2/city", [
+                'city'    => $city,
+                'state'   => $this->getStateByCity($city),
+                'country' => 'Pakistan',
+                'key'     => env('IQAIR_API_KEY'),
+            ]);
+    
+            if ($response->successful() && $response->json('status') === 'success') {
+                $aqi = $response->json('data.current.pollution.aqius');
+                $message = $this->getMessage($aqi, $name, $city);
+            } else {
+                $aqi = null;
+                $message = "City not found or API error.";
+            }
+        } catch (\Throwable $e) {
+            $aqi = null;
+            $message = "Could not fetch AQI (" . $e->getMessage() . ").";
+        }
+    
+        return [
+            'name'    => $name,
+            'city'    => $city,
+            'phone'   => $phone,
+            'aqi'     => $aqi,
+            'message' => $message,
+        ];
+    }
+    
 
 
     private function getMessage($aqi, $name, $city)
@@ -130,18 +159,20 @@ class AQIController extends Controller
 
     private function getStateByCity($city)
     {
+        $city = strtolower(trim($city));
+
         // 🔥 IQAir requires "state" for each city
         $map = [
-            'Karachi'     => 'Sindh',
-            'Lahore'      => 'Punjab',
-            'Islamabad'   => 'Islamabad',
-            'Faisalabad'  => 'Punjab',
-            'Multan'      => 'Punjab',
-            'Rawalpindi'  => 'Punjab',
-            'Quetta'      => 'Balochistan',
-            'Peshawar'    => 'Khyber Pakhtunkhwa',
-            'Hyderabad'   => 'Sindh',
-            'Sialkot'     => 'Punjab',
+            'karachi'     => 'Sindh',
+            'lahore'      => 'Punjab',
+            'islamabad'   => 'Islamabad',
+            'faisalabad'  => 'Punjab',
+            'multan'      => 'Punjab',
+            'rawalpindi'  => 'Punjab',
+            'quetta'      => 'Balochistan',
+            'peshawar'    => 'Khyber Pakhtunkhwa',
+            'hyderabad'   => 'Sindh',
+            'sialkot'     => 'Punjab',
         ];
 
         return $map[$city] ?? 'Punjab'; // fallback
